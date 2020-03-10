@@ -15,6 +15,7 @@
 package domainrolemanager
 
 import (
+	"net"
 	"testing"
 
 	"github.com/casbin/casbin/v2"
@@ -51,6 +52,14 @@ func testGetUsers(t *testing.T, rm rbac.RoleManager, name string, domain string,
 		t.Errorf("%s: %s, supposed to be %s", name, myRes, res)
 	}
 }
+
+func testDomainEnforce(t *testing.T, e *casbin.Enforcer, sub string, dom string, obj string, act string, res bool) {
+	t.Helper()
+	if myRes, _ := e.Enforce(sub, dom, obj, act); myRes != res {
+		t.Errorf("%s, %s, %s, %s: %t, supposed to be %t", sub, dom, obj, act, myRes, res)
+	}
+}
+
 func TestDomainRole(t *testing.T) {
 	rm := NewRoleManager(3)
 	rm.AddLink("u1", "g1", "domain1")
@@ -183,12 +192,6 @@ func TestGetUsers(t *testing.T) {
 	testGetUsers(t, rm, "g1", "domain1", []string{"u1", "u3"})
 	testGetUsers(t, rm, "g2", "domain3", []string{"u4"})
 }
-func testDomainEnforce(t *testing.T, e *casbin.Enforcer, sub string, dom string, obj string, act string, res bool) {
-	t.Helper()
-	if myRes, _ := e.Enforce(sub, dom, obj, act); myRes != res {
-		t.Errorf("%s, %s, %s, %s: %t, supposed to be %t", sub, dom, obj, act, myRes, res)
-	}
-}
 
 func TestDomainMatchModel(t *testing.T) {
 	e, _ := casbin.NewEnforcer("examples/domainmatch_model.conf", "examples/domainmatch_policy.csv")
@@ -205,4 +208,46 @@ func TestDomainMatchModel(t *testing.T) {
 	testDomainEnforce(t, e, "bob", "domain2", "data1", "write", false)
 	testDomainEnforce(t, e, "bob", "domain2", "data2", "read", true)
 	testDomainEnforce(t, e, "bob", "domain2", "data2", "write", true)
+}
+
+func TestMatchingFunc(t *testing.T) {
+	rm := NewRoleManager(10)
+	rm.(*RoleManager).AddMatchingFunc(IPMatch)
+
+	rm.AddLink("u1", "g1", "192.168.2.1")
+	rm.AddLink("u2", "g1", "192.168.2.1")
+	rm.AddLink("u2", "g2", "192.168.2.2")
+
+	rm.AddLink("u3", "g1", "192.168.2.0/24")
+
+	// Current role inheritance tree after deleting the links:
+	// 	 	                  192.168.2.1::g1				        192.168.2.2::g2
+	//                  /      \	           \				          /
+	//    192.168.2.1::u1    192.168.2.1::u2  192.168.2.0/24::g1   192.168.2.2::u2
+	//                                          /
+	// 									192.168.2.0/24::u3
+	testDomainRole(t, rm, "u1", "g1", "192.168.2.1", true)
+	testDomainRole(t, rm, "u3", "g1", "192.168.2.1", true)
+	testDomainRole(t, rm, "u2", "g2", "192.168.2.1", false)
+	testDomainRole(t, rm, "u3", "g2", "192.168.2.1", false)
+	testDomainRole(t, rm, "u3", "g1", "192.168.2.2", true)
+	testDomainRole(t, rm, "u2", "g2", "192.168.2.2", true)
+}
+func IPMatch(ip1 string, ip2 string) bool {
+	objIP1 := net.ParseIP(ip1)
+	if objIP1 == nil {
+		return false
+	}
+
+	_, cidr, err := net.ParseCIDR(ip2)
+	if err != nil {
+		objIP2 := net.ParseIP(ip2)
+		if objIP2 == nil {
+			return false
+		}
+
+		return objIP1.Equal(objIP2)
+	}
+
+	return cidr.Contains(objIP1)
 }

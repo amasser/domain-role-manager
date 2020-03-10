@@ -45,7 +45,7 @@ func NewRoleManager(maxHierarchyLevel int) rbac.RoleManager {
 			return false
 		}
 
-		if k1[0] == "*" || k2[0] == "*" {
+		if k2[0] == "*" {
 			return true
 		}
 
@@ -55,6 +55,27 @@ func NewRoleManager(maxHierarchyLevel int) rbac.RoleManager {
 	return &rm
 }
 
+// AddMatchingFunc -
+// e.BuildRoleLinks must be called after AddMatchingFunc().
+func (rm *RoleManager) AddMatchingFunc(matchingFunc MatchingFunc) {
+	rm.matchingFunc = func(key1 string, key2 string) bool {
+		k1 := strings.Split(key1, "::")
+		k2 := strings.Split(key2, "::")
+		if k1[1] != k2[1] {
+			return false
+		}
+
+		if k1[0] == k2[0] {
+			return true
+		}
+
+		if matchingFunc(k1[0], k2[0]) {
+			return true
+		}
+
+		return false
+	}
+}
 func (rm *RoleManager) hasRole(name string) bool {
 	var ok bool
 
@@ -179,14 +200,9 @@ func (rm *RoleManager) GetRoles(name string, domain ...string) ([]string, error)
 	res := []string{}
 	simplificateRoles := func(roles []string) {
 		for _, role := range roles {
-			if role[0] == '*' {
-				if role[3:] != name {
-					res = append(res, role[3:])
-				}
-			} else {
-				if role[len(domain[0])+2:] != name {
-					res = append(res, role[len(domain[0])+2:])
-				}
+			i := strings.Index(role, "::")
+			if role[i+2:] != name {
+				res = append(res, role[i+2:])
 			}
 		}
 	}
@@ -228,14 +244,9 @@ func (rm *RoleManager) GetUsers(name string, domain ...string) ([]string, error)
 	})
 	var res []string
 	for _, role := range names {
-		if role[0] == '*' {
-			if role[3:] != name {
-				res = append(res, role[3:])
-			}
-		} else {
-			if role[len(domain[0])+2:] != name {
-				res = append(res, role[len(domain[0])+2:])
-			}
+		i := strings.Index(role, "::")
+		if role[i+2:] != name {
+			res = append(res, role[i+2:])
 		}
 	}
 
