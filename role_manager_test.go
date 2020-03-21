@@ -189,7 +189,7 @@ func TestGetUsers(t *testing.T) {
 
 	// The order of the elements in the slice may be chaotic due to the order of the map's allrange
 	testGetUsers(t, rm, "u3", "domain1", []string{})
-	testGetUsers(t, rm, "g1", "domain1", []string{"u1", "u3"})
+	testGetUsers(t, rm, "g1", "domain1", []string{"u3", "u1"})
 	testGetUsers(t, rm, "g2", "domain3", []string{"u4"})
 }
 
@@ -233,6 +233,18 @@ func TestMatchingFunc(t *testing.T) {
 	testDomainRole(t, rm, "u3", "g1", "192.168.2.2", true)
 	testDomainRole(t, rm, "u2", "g2", "192.168.2.2", true)
 }
+
+func TestDomainIPMatchModel(t *testing.T) {
+	e, _ := casbin.NewEnforcer("examples/domain_ipmatch_model.conf", "examples/domain_ipmatch_policy.csv")
+	rm := NewRoleManager(10)
+	rm.(*RoleManager).AddMatchingFunc(IPMatch)
+	e.SetRoleManager(rm)
+	e.LoadPolicy()
+	testDomainEnforce(t, e, "g1", "192.168.1.1", "data1", "read", true)
+	testDomainEnforce(t, e, "u3", "192.168.1.1", "data1", "read", true)
+	testDomainEnforce(t, e, "u3", "192.168.1.1", "data2", "read", false)
+}
+
 func IPMatch(ip1 string, ip2 string) bool {
 	objIP1 := net.ParseIP(ip1)
 	if objIP1 == nil {
