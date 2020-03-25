@@ -1,0 +1,4 @@
+p, data1_admin, *, data1, read
+p, data1_admin, *, data1, write
+
+g, alice, data1_admin, domain1

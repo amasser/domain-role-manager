@@ -33,13 +33,10 @@ func main() {
 	e.LoadPolicy()
 	
 	// Check the permission.
+	// Please do not use pattern domain names here, this will produce some errors
 	e.Enforce("alice", "domain1", "data1", "read")
 }
 ```
-
-## Getting Help
-
-- [Casbin](https://github.com/casbin/casbin)
 
 ## License
 

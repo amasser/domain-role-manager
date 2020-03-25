@@ -147,11 +147,6 @@ func TestDomainPartternRole(t *testing.T) {
 	testDomainRole(t, rm, "u1", "g2", "domain1", false)
 	testDomainRole(t, rm, "u4", "g2", "domain3", true)
 	testDomainRole(t, rm, "u3", "g2", "domain3", false)
-	// use * when querying permissions，it will return true always, so I forbid to use * for query in domain
-	testDomainRole(t, rm, "u3", "g2", "*", false)
-	testDomainRole(t, rm, "u3", "g1", "*", false)
-	testDomainRole(t, rm, "u2", "g1", "*", false)
-	testDomainRole(t, rm, "u3", "g1", "*", false)
 }
 
 func TestPrintRoles(t *testing.T) {
@@ -194,7 +189,7 @@ func TestGetUsers(t *testing.T) {
 }
 
 func TestDomainMatchModel(t *testing.T) {
-	e, _ := casbin.NewEnforcer("examples/domainmatch_model.conf", "examples/domainmatch_policy.csv")
+	e, _ := casbin.NewEnforcer("examples/domain_match_model.conf", "examples/domain_match_policy.csv")
 	rm := NewRoleManager(10)
 	e.SetRoleManager(rm)
 	e.LoadPolicy()
@@ -262,4 +257,25 @@ func IPMatch(ip1 string, ip2 string) bool {
 	}
 
 	return cidr.Contains(objIP1)
+}
+
+func TestPolicyMatchModel(t *testing.T) {
+	e, _ := casbin.NewEnforcer("examples/p_domain_match_model.conf", "examples/p_domain_match_policy.csv")
+	rm := NewRoleManager(10)
+	e.SetRoleManager(rm)
+	e.LoadPolicy()
+	testDomainEnforce(t, e, "alice", "domain1", "data1", "read", true)
+	testDomainEnforce(t, e, "alice", "domain2", "data1", "read", false)
+	testDomainEnforce(t, e, "data1_admin", "domain1", "data1", "read", true)
+}
+
+func TestPolicyIPMatchModel(t *testing.T) {
+	e, _ := casbin.NewEnforcer("examples/p_domain_ipmatch_model.conf", "examples/p_domain_ipmatch_policy.csv")
+	rm := NewRoleManager(10)
+	e.SetRoleManager(rm)
+	e.LoadPolicy()
+	testDomainEnforce(t, e, "u1", "192.168.1.1", "data1", "read", true)
+	testDomainEnforce(t, e, "u2", "192.168.1.1", "data1", "read", false)
+	testDomainEnforce(t, e, "g1", "192.168.1.1", "data1", "read", true)
+
 }
